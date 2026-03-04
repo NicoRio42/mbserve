@@ -1,4 +1,5 @@
 import { argv } from "bun";
+import { spawn } from "node:child_process";
 import { exists } from "node:fs/promises";
 import process from "node:process";
 import { Mbtiles } from "./mbtiles";
@@ -48,6 +49,18 @@ const server = Bun.serve({
 });
 
 console.log(`Serving on ${server.url}`);
+openBrowser(server.url.href);
+
+function openBrowser(url: string) {
+  const cmd =
+    process.platform === "darwin"
+      ? "open"
+      : process.platform === "win32"
+        ? "cmd"
+        : "xdg-open";
+  const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
+  spawn(cmd, args, { detached: true, stdio: "ignore" }).unref();
+}
 
 function getTilesContentTypeFromFormat(format: string | undefined): string {
   switch (format) {
