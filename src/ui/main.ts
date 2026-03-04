@@ -24,7 +24,12 @@ type NormalizedTileJson = RawTileJson & {
 };
 
 const tileJson = normalizeTileJson(await fetchTileJson());
-const fallbackCenter: [number, number] = [0, 0];
+const fallbackCenter: [number, number] = tileJson.bounds
+  ? [
+      (tileJson.bounds[0] + tileJson.bounds[2]) / 2,
+      (tileJson.bounds[1] + tileJson.bounds[3]) / 2,
+    ]
+  : [0, 0];
 
 const map = new Map({
   container: "map",
