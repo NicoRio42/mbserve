@@ -31,6 +31,7 @@ const map = new Map({
   style: buildStyleFromTileJson(tileJson),
   center: tileJson.center ?? fallbackCenter,
   zoom: tileJson.zoom ?? 2,
+  maxPitch: 85,
   hash: true,
   ...(tileJson.encoding ? { pitch: 60, bearing: -20 } : {}),
   ...(tileJson.bounds ? { maxBounds: tileJson.bounds } : {}),
