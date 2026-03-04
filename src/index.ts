@@ -1,16 +1,30 @@
-import { argv } from "bun";
 import { spawn } from "node:child_process";
 import { exists } from "node:fs/promises";
 import process from "node:process";
+import yargs from "yargs";
+import { hideBin } from "yargs/helpers";
 import { Mbtiles } from "./mbtiles";
 import index from "./ui/index.html";
 
-const mbtilesPath = argv[2];
+const cliArgs = await yargs(hideBin(process.argv))
+  .scriptName("mbserve")
+  .usage("$0 <path-to-mbtiles> [options]")
+  .positional("path-to-mbtiles", {
+    describe: "Path to the .mbtiles file",
+    type: "string",
+  })
+  .option("osm", {
+    type: "boolean",
+    default: false,
+    describe: "Add an OpenStreetMap background layer",
+  })
+  .demandCommand(1, "You must provide a path to an .mbtiles file")
+  .strict()
+  .help()
+  .parse();
 
-if (mbtilesPath === undefined) {
-  console.error("Usage: bun run src/index.ts <path-to-mbtiles>");
-  process.exit(1);
-}
+const mbtilesPath = String(cliArgs._[0]);
+const osm = cliArgs.osm;
 
 if (!(await exists(mbtilesPath))) {
   console.error(`File ${mbtilesPath} does not exist`);
@@ -39,8 +53,8 @@ const server = Bun.serve({
         },
       });
     },
-    "/tilejson": () => {
-      return new Response(JSON.stringify(tileJson), {
+    "/config": () => {
+      return new Response(JSON.stringify({ ...tileJson, osm }), {
         headers: {
           "Content-Type": "application/json",
         },

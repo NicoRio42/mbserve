@@ -21,6 +21,12 @@ This builds the binary and copies it to `~/.local/bin/mbserve`.
 mbserve /path/to/file.mbtiles
 ```
 
+Enable an OpenStreetMap background:
+
+```bash
+mbserve /path/to/file.mbtiles --osm
+```
+
 Or run directly in dev mode:
 
 ```bash
@@ -30,7 +36,7 @@ bun run src/index.ts /path/to/file.mbtiles
 The app starts a local HTTP server on a random available port, opens your browser automatically, and serves:
 
 - `GET /` – map UI
-- `GET /tilejson` – metadata from MBTiles `metadata`
+- `GET /config` – metadata from MBTiles `metadata` plus runtime options (like `osm`)
 - `GET /tiles/{z}/{x}/{y}` – tile endpoint
 
 ## Supported MBTiles content

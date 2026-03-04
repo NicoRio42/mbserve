@@ -13,28 +13,30 @@ type RawTileJson = Omit<
   vector_layers?: { id: string }[];
   encoding?: "mapbox" | "terrarium";
   json?: string;
+  osm?: unknown;
 };
 
-type NormalizedTileJson = RawTileJson & {
+type NormalizedConfig = RawTileJson & {
   center?: [number, number];
   zoom?: number;
   bounds?: [number, number, number, number];
   minzoom?: number;
   maxzoom?: number;
+  osm: boolean;
 };
 
-const tileJson = normalizeTileJson(await fetchTileJson());
+const config = normalizeConfig(await fetchConfig());
 const fallbackCenter: [number, number] = [0, 0];
 
 const map = new Map({
   container: "map",
-  style: buildStyleFromTileJson(tileJson),
-  center: tileJson.center ?? fallbackCenter,
-  zoom: tileJson.zoom ?? 2,
+  style: buildStyleFromConfig(config),
+  center: config.center ?? fallbackCenter,
+  zoom: config.zoom ?? 2,
   maxPitch: 85,
   hash: true,
-  ...(tileJson.encoding ? { pitch: 60, bearing: -20 } : {}),
-  ...(tileJson.bounds ? { maxBounds: tileJson.bounds } : {}),
+  ...(config.encoding ? { pitch: 60, bearing: -20 } : {}),
+  ...(config.bounds ? { maxBounds: config.bounds } : {}),
 });
 
 if (import.meta.hot) {
@@ -43,34 +45,43 @@ if (import.meta.hot) {
   });
 }
 
-async function fetchTileJson(): Promise<RawTileJson> {
-  const response = await fetch("/tilejson");
+async function fetchConfig(): Promise<RawTileJson> {
+  const response = await fetch("/config");
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch /tilejson: ${response.status}`);
+    throw new Error(`Failed to fetch /config: ${response.status}`);
   }
 
   return (await response.json()) as RawTileJson;
 }
 
-function buildStyleFromTileJson(
-  tileJson: NormalizedTileJson,
-): StyleSpecification {
-  if (tileJson.encoding) {
+function buildStyleFromConfig(config: NormalizedConfig): StyleSpecification {
+  if (config.encoding) {
     return {
       version: 8,
       projection: {
         type: "globe",
       },
       sources: {
+        ...(config.osm
+          ? {
+              osm: {
+                type: "raster" as const,
+                tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+                tileSize: 256,
+                maxzoom: 19,
+                attribution: "© OpenStreetMap contributors",
+              },
+            }
+          : {}),
         mbtiles: {
           type: "raster-dem",
           tiles: ["/tiles/{z}/{x}/{y}"],
           tileSize: 256,
-          minzoom: tileJson.minzoom,
-          maxzoom: tileJson.maxzoom,
-          attribution: tileJson.attribution,
-          encoding: tileJson.encoding,
+          minzoom: config.minzoom,
+          maxzoom: config.maxzoom,
+          attribution: config.attribution,
+          encoding: config.encoding,
         },
       },
       terrain: {
@@ -78,13 +89,26 @@ function buildStyleFromTileJson(
         exaggeration: 1,
       },
       layers: [
-        {
-          id: "terrain-background",
-          type: "background",
-          paint: {
-            "background-color": "#0f172a",
-          },
-        },
+        ...(config.osm
+          ? [
+              {
+                id: "osm-background",
+                type: "raster" as const,
+                source: "osm",
+              },
+            ]
+          : []),
+        ...(!config.osm
+          ? [
+              {
+                id: "terrain-background",
+                type: "background" as const,
+                paint: {
+                  "background-color": "#0f172a",
+                },
+              },
+            ]
+          : []),
         {
           id: "terrain-hillshade",
           type: "hillshade",
@@ -97,7 +121,7 @@ function buildStyleFromTileJson(
     };
   }
 
-  const isVector = tileJson.format === "pbf";
+  const isVector = config.format === "pbf";
 
   if (!isVector) {
     return {
@@ -106,16 +130,36 @@ function buildStyleFromTileJson(
         type: "globe",
       },
       sources: {
+        ...(config.osm
+          ? {
+              osm: {
+                type: "raster" as const,
+                tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+                tileSize: 256,
+                maxzoom: 19,
+                attribution: "© OpenStreetMap contributors",
+              },
+            }
+          : {}),
         mbtiles: {
           type: "raster",
           tiles: ["/tiles/{z}/{x}/{y}"],
           tileSize: 256,
-          minzoom: tileJson.minzoom,
-          maxzoom: tileJson.maxzoom,
-          attribution: tileJson.attribution,
+          minzoom: config.minzoom,
+          maxzoom: config.maxzoom,
+          attribution: config.attribution,
         },
       },
       layers: [
+        ...(config.osm
+          ? [
+              {
+                id: "osm-background",
+                type: "raster" as const,
+                source: "osm",
+              },
+            ]
+          : []),
         {
           id: "mbtiles-raster",
           type: "raster",
@@ -125,7 +169,7 @@ function buildStyleFromTileJson(
     };
   }
 
-  const vectorLayerIds = getVectorLayerIds(tileJson);
+  const vectorLayerIds = getVectorLayerIds(config);
 
   return {
     version: 8,
@@ -133,15 +177,35 @@ function buildStyleFromTileJson(
       type: "globe",
     },
     sources: {
+      ...(config.osm
+        ? {
+            osm: {
+              type: "raster" as const,
+              tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+              tileSize: 256,
+              maxzoom: 19,
+              attribution: "© OpenStreetMap contributors",
+            },
+          }
+        : {}),
       mbtiles: {
         type: "vector",
         tiles: ["/tiles/{z}/{x}/{y}"],
-        minzoom: tileJson.minzoom,
-        maxzoom: tileJson.maxzoom,
-        attribution: tileJson.attribution,
+        minzoom: config.minzoom,
+        maxzoom: config.maxzoom,
+        attribution: config.attribution,
       },
     },
     layers: [
+      ...(config.osm
+        ? [
+            {
+              id: "osm-background",
+              type: "raster" as const,
+              source: "osm",
+            },
+          ]
+        : []),
       ...vectorLayerIds.map((sourceLayerId) => ({
         id: `mbtiles-${sourceLayerId}`,
         type: "line" as const,
@@ -152,23 +216,28 @@ function buildStyleFromTileJson(
   };
 }
 
-function normalizeTileJson(tileJson: RawTileJson): NormalizedTileJson {
-  const center = toCenter(tileJson.center);
+function normalizeConfig(config: RawTileJson): NormalizedConfig {
+  const center = toCenter(config.center);
   const zoom = toValidZoom(
-    toCenterZoom(tileJson.center) ?? toFiniteNumber(tileJson.minzoom),
+    toCenterZoom(config.center) ?? toFiniteNumber(config.minzoom),
   );
-  const bounds = toBounds(tileJson.bounds);
-  const minzoom = toValidZoom(toFiniteNumber(tileJson.minzoom));
-  const maxzoom = toValidZoom(toFiniteNumber(tileJson.maxzoom));
+  const bounds = toBounds(config.bounds);
+  const minzoom = toValidZoom(toFiniteNumber(config.minzoom));
+  const maxzoom = toValidZoom(toFiniteNumber(config.maxzoom));
 
   return {
-    ...tileJson,
+    ...config,
     center,
     zoom,
     bounds,
     minzoom,
     maxzoom,
+    osm: toBoolean(config.osm),
   };
+}
+
+function toBoolean(value: unknown): boolean {
+  return value === true;
 }
 
 function toCenterZoom(value: unknown): number | undefined {

@@ -8,12 +8,14 @@
     "install": "bun run build && cp mbserve ~/.local/bin"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/yargs": "^17.0.35"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
-    "maplibre-gl": "^5.19.0"
+    "maplibre-gl": "^5.19.0",
+    "yargs": "^18.0.0"
   }
 }
