@@ -22,6 +22,7 @@ const tileJson = mbtiles.getTileJson();
 const tilesContentType = getTilesContentTypeFromFormat(tileJson.format);
 
 const server = Bun.serve({
+  port: 0,
   routes: {
     "/": index,
     "/tiles/:zoom/:x/:y": (req) => {

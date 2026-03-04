@@ -3,7 +3,9 @@
   "module": "src/index.ts",
   "type": "module",
   "scripts": {
-    "dev": "bun --watch src/index.ts"
+    "dev": "bun --watch src/index.ts",
+    "build": "rm -f mbserve && bun build ./src/index.ts --compile --outfile mbserve",
+    "install": "bun run build && cp mbserve ~/.local/bin"
   },
   "devDependencies": {
     "@types/bun": "latest"
