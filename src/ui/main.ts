@@ -1,14 +1,17 @@
 import { Map, type StyleSpecification } from "maplibre-gl";
+import type { TileJson } from "../mbtiles";
 
-type RawTileJson = {
-  name?: string;
-  format?: string;
+type RawTileJson = Omit<
+  TileJson,
+  "bounds" | "center" | "minzoom" | "maxzoom"
+> & {
+  attribution?: string;
   bounds?: unknown;
   center?: unknown;
   minzoom?: unknown;
   maxzoom?: unknown;
-  attribution?: string;
   vector_layers?: { id: string }[];
+  encoding?: "mapbox" | "terrarium";
   json?: string;
 };
 
@@ -23,13 +26,43 @@ type NormalizedTileJson = RawTileJson & {
 const tileJson = normalizeTileJson(await fetchTileJson());
 const fallbackCenter: [number, number] = [0, 0];
 
-new Map({
+const map = new Map({
   container: "map",
   style: buildStyleFromTileJson(tileJson),
   center: tileJson.center ?? fallbackCenter,
   zoom: tileJson.zoom ?? 2,
+  hash: true,
+  ...(tileJson.encoding ? { pitch: 60, bearing: -20 } : {}),
   ...(tileJson.bounds ? { maxBounds: tileJson.bounds } : {}),
 });
+
+map.on("style.load", () => {
+  map.setSky({
+    "sky-color": "#199EF3",
+    "sky-horizon-blend": 0.5,
+    "horizon-color": "#ffffff",
+    "horizon-fog-blend": 0.5,
+    "fog-color": "#0000ff",
+    "fog-ground-blend": 0.5,
+    "atmosphere-blend": [
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      0,
+      1,
+      10,
+      1,
+      12,
+      0,
+    ],
+  });
+});
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    map.remove();
+  });
+}
 
 async function fetchTileJson(): Promise<RawTileJson> {
   const response = await fetch("/tilejson");
@@ -44,11 +77,55 @@ async function fetchTileJson(): Promise<RawTileJson> {
 function buildStyleFromTileJson(
   tileJson: NormalizedTileJson,
 ): StyleSpecification {
+  if (tileJson.encoding) {
+    return {
+      version: 8,
+      projection: {
+        type: "globe",
+      },
+      sources: {
+        mbtiles: {
+          type: "raster-dem",
+          tiles: ["/tiles/{z}/{x}/{y}"],
+          tileSize: 256,
+          minzoom: tileJson.minzoom,
+          maxzoom: tileJson.maxzoom,
+          attribution: tileJson.attribution,
+          encoding: tileJson.encoding,
+        },
+      },
+      terrain: {
+        source: "mbtiles",
+        exaggeration: 1,
+      },
+      layers: [
+        {
+          id: "terrain-background",
+          type: "background",
+          paint: {
+            "background-color": "#0f172a",
+          },
+        },
+        {
+          id: "terrain-hillshade",
+          type: "hillshade",
+          source: "mbtiles",
+          paint: {
+            "hillshade-exaggeration": 0.7,
+          },
+        },
+      ],
+    };
+  }
+
   const isVector = tileJson.format === "pbf";
 
   if (!isVector) {
     return {
       version: 8,
+      projection: {
+        type: "globe",
+      },
       sources: {
         mbtiles: {
           type: "raster",
@@ -73,6 +150,9 @@ function buildStyleFromTileJson(
 
   return {
     version: 8,
+    projection: {
+      type: "globe",
+    },
     sources: {
       mbtiles: {
         type: "vector",
@@ -82,28 +162,33 @@ function buildStyleFromTileJson(
         attribution: tileJson.attribution,
       },
     },
-    layers: vectorLayerIds.map((sourceLayerId) => ({
-      id: `mbtiles-${sourceLayerId}`,
-      type: "line" as const,
-      source: "mbtiles",
-      "source-layer": sourceLayerId,
-    })),
+    layers: [
+      ...vectorLayerIds.map((sourceLayerId) => ({
+        id: `mbtiles-${sourceLayerId}`,
+        type: "line" as const,
+        source: "mbtiles",
+        "source-layer": sourceLayerId,
+      })),
+    ],
   };
 }
 
 function normalizeTileJson(tileJson: RawTileJson): NormalizedTileJson {
   const center = toCenter(tileJson.center);
-  const zoom =
-    toCenterZoom(tileJson.center) ?? toFiniteNumber(tileJson.minzoom);
+  const zoom = toValidZoom(
+    toCenterZoom(tileJson.center) ?? toFiniteNumber(tileJson.minzoom),
+  );
   const bounds = toBounds(tileJson.bounds);
+  const minzoom = toValidZoom(toFiniteNumber(tileJson.minzoom));
+  const maxzoom = toValidZoom(toFiniteNumber(tileJson.maxzoom));
 
   return {
     ...tileJson,
     center,
     zoom,
     bounds,
-    minzoom: toFiniteNumber(tileJson.minzoom),
-    maxzoom: toFiniteNumber(tileJson.maxzoom),
+    minzoom,
+    maxzoom,
   };
 }
 
@@ -133,7 +218,7 @@ function toCenter(value: unknown): [number, number] | undefined {
     return undefined;
   }
 
-  return [lng, lat];
+  return [clamp(lng, -180, 180), clamp(lat, -85.051129, 85.051129)];
 }
 
 function toBounds(
@@ -157,7 +242,32 @@ function toBounds(
     return undefined;
   }
 
+  if (minLng >= maxLng || minLat >= maxLat) {
+    return undefined;
+  }
+
+  if (
+    minLng < -180 ||
+    maxLng > 180 ||
+    minLat < -85.051129 ||
+    maxLat > 85.051129
+  ) {
+    return undefined;
+  }
+
   return [minLng, minLat, maxLng, maxLat];
+}
+
+function toValidZoom(value: number | undefined): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return clamp(value, 0, 24);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }
 
 function getVectorLayerIds(tileJson: RawTileJson): string[] {

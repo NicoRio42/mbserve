@@ -11,6 +11,8 @@ export type TileJson = {
   type?: string;
   version?: string;
   attribution?: string;
+  sparse?: boolean;
+  encoding?: "mapbox" | "terrarium";
   [key: string]: unknown;
 };
 
@@ -64,6 +66,9 @@ export class Mbtiles {
           break;
         case "maxzoom":
           tileJson.maxzoom = Number(value);
+          break;
+        case "sparse":
+          tileJson.sparse = value === "true";
           break;
         default:
           tileJson[name] = value;
