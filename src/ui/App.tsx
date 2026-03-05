@@ -35,7 +35,6 @@ export default function App() {
       mapStyle={mapStyle}
       hash
       maxPitch={85}
-      maxBounds={config.bounds}
     >
       <NavigationControl />
       {supportsTerrainPreview ? (
