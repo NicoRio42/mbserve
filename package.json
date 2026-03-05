@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun --watch src/index.ts",
+    "check": "bunx tsc --noemit",
     "build": "rm -f mbserve && bun build ./src/index.ts --compile --outfile mbserve",
     "install": "bun run build && cp mbserve ~/.local/bin"
   },
@@ -22,6 +23,7 @@
     "react-dom": "^19.2.4",
     "react-map-gl": "^8.1.0",
     "tailwindcss": "^4.2.1",
-    "yargs": "^18.0.0"
+    "yargs": "^18.0.0",
+    "zod": "^4.3.6"
   }
 }
