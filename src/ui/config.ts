@@ -107,7 +107,9 @@ function normalizeConfig(config: RawTileJson): NormalizedConfig {
   };
 }
 
-export function buildStyleFromConfig(config: NormalizedConfig): StyleSpecification {
+export function buildStyleFromConfig(
+  config: NormalizedConfig,
+): StyleSpecification {
   if (config.encoding) {
     return {
       version: 8,
