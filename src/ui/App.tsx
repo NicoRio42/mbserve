@@ -2,6 +2,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { use, useEffect, useMemo, useState } from "react";
 import { Map, NavigationControl } from "react-map-gl/maplibre";
 import { buildStyleFromConfig, configPromise } from "./config.ts";
+import { GridPreviewControl } from "./grid-preview-control.tsx";
+import { GridPreview } from "./grid-preview.tsx";
 import { TerrainToggleControl } from "./terrain-control.ts";
 
 const fallbackCenter: [number, number] = [0, 0];
@@ -12,6 +14,7 @@ export default function App() {
   const [terrainPreviewEnabled, setTerrainPreviewEnabled] = useState(
     supportsTerrainPreview,
   );
+  const [gridPreviewEnabled, setGridPreviewEnabled] = useState(false);
 
   useEffect(() => {
     setTerrainPreviewEnabled(supportsTerrainPreview);
@@ -37,6 +40,7 @@ export default function App() {
       maxPitch={85}
     >
       <NavigationControl />
+
       {supportsTerrainPreview ? (
         <TerrainToggleControl
           enabled={terrainPreviewEnabled}
@@ -45,6 +49,15 @@ export default function App() {
           }}
         />
       ) : null}
+
+      <GridPreviewControl
+        enabled={gridPreviewEnabled}
+        onToggle={() => {
+          setGridPreviewEnabled((enabled) => !enabled);
+        }}
+      />
+
+      <GridPreview enabled={gridPreviewEnabled} />
     </Map>
   );
 }
