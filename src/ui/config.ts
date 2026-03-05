@@ -109,8 +109,11 @@ function normalizeConfig(config: RawTileJson): NormalizedConfig {
 
 export function buildStyleFromConfig(
   config: NormalizedConfig,
+  options: { terrainPreview?: boolean } = {},
 ): StyleSpecification {
   if (config.encoding) {
+    const terrainPreview = options.terrainPreview ?? true;
+
     return {
       version: 8,
       sources: {
@@ -125,20 +128,33 @@ export function buildStyleFromConfig(
               },
             }
           : {}),
-        mbtiles: {
-          type: "raster-dem",
-          tiles: ["/tiles/{z}/{x}/{y}"],
-          tileSize: 256,
-          minzoom: config.minzoom,
-          maxzoom: config.maxzoom,
-          attribution: config.attribution,
-          encoding: config.encoding,
-        },
+        mbtiles: terrainPreview
+          ? {
+              type: "raster-dem" as const,
+              tiles: ["/tiles/{z}/{x}/{y}"],
+              tileSize: 256,
+              minzoom: config.minzoom,
+              maxzoom: config.maxzoom,
+              attribution: config.attribution,
+              encoding: config.encoding,
+            }
+          : {
+              type: "raster" as const,
+              tiles: ["/tiles/{z}/{x}/{y}"],
+              tileSize: 256,
+              minzoom: config.minzoom,
+              maxzoom: config.maxzoom,
+              attribution: config.attribution,
+            },
       },
-      terrain: {
-        source: "mbtiles",
-        exaggeration: 1,
-      },
+      ...(terrainPreview
+        ? {
+            terrain: {
+              source: "mbtiles",
+              exaggeration: 1,
+            },
+          }
+        : {}),
       layers: [
         ...(config.osm
           ? [
@@ -149,25 +165,35 @@ export function buildStyleFromConfig(
               },
             ]
           : []),
-        ...(!config.osm
+        ...(terrainPreview
           ? [
+              ...(!config.osm
+                ? [
+                    {
+                      id: "terrain-background",
+                      type: "background" as const,
+                      paint: {
+                        "background-color": "#0f172a",
+                      },
+                    },
+                  ]
+                : []),
               {
-                id: "terrain-background",
-                type: "background" as const,
+                id: "terrain-hillshade",
+                type: "hillshade" as const,
+                source: "mbtiles",
                 paint: {
-                  "background-color": "#0f172a",
+                  "hillshade-exaggeration": 0.7,
                 },
               },
             ]
-          : []),
-        {
-          id: "terrain-hillshade",
-          type: "hillshade",
-          source: "mbtiles",
-          paint: {
-            "hillshade-exaggeration": 0.7,
-          },
-        },
+          : [
+              {
+                id: "mbtiles-raster",
+                type: "raster" as const,
+                source: "mbtiles",
+              },
+            ]),
       ],
     };
   }
