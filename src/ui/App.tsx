@@ -1,4 +1,7 @@
-import { Map, type StyleSpecification } from "maplibre-gl";
+import type { StyleSpecification } from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+import { useEffect, useMemo, useState } from "react";
+import { Map, NavigationControl } from "react-map-gl/maplibre";
 import type { TileJson } from "../mbtiles";
 
 type RawTileJson = Omit<
@@ -23,24 +26,73 @@ type NormalizedConfig = RawTileJson & {
   osm: boolean;
 };
 
-const config = normalizeConfig(await fetchConfig());
 const fallbackCenter: [number, number] = [0, 0];
 
-const map = new Map({
-  container: "map",
-  style: buildStyleFromConfig(config),
-  center: config.center ?? fallbackCenter,
-  zoom: config.zoom ?? 2,
-  maxPitch: 85,
-  hash: true,
-  ...(config.encoding ? { pitch: 60, bearing: -20 } : {}),
-  ...(config.bounds ? { maxBounds: config.bounds } : {}),
-});
+export default function App() {
+  const [config, setConfig] = useState<NormalizedConfig | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-if (import.meta.hot) {
-  import.meta.hot.dispose(() => {
-    map.remove();
-  });
+  useEffect(() => {
+    let active = true;
+
+    fetchConfig()
+      .then((rawConfig) => {
+        if (!active) {
+          return;
+        }
+
+        setConfig(normalizeConfig(rawConfig));
+      })
+      .catch((fetchError: unknown) => {
+        if (!active) {
+          return;
+        }
+
+        setError(
+          fetchError instanceof Error
+            ? fetchError.message
+            : "Failed to fetch map config",
+        );
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const mapStyle = useMemo<StyleSpecification | null>(() => {
+    if (!config) {
+      return null;
+    }
+
+    return buildStyleFromConfig(config);
+  }, [config]);
+
+  if (error) {
+    return <div>{error}</div>;
+  }
+
+  if (!config || !mapStyle) {
+    return <div>Loading map configuration…</div>;
+  }
+
+  return (
+    <Map
+      initialViewState={{
+        longitude: config.center?.[0] ?? fallbackCenter[0],
+        latitude: config.center?.[1] ?? fallbackCenter[1],
+        zoom: config.zoom ?? 2,
+        bearing: config.encoding ? -20 : 0,
+        pitch: config.encoding ? 60 : 0,
+      }}
+      mapStyle={mapStyle}
+      hash
+      maxPitch={85}
+      maxBounds={config.bounds}
+    >
+      <NavigationControl />
+    </Map>
+  );
 }
 
 async function fetchConfig(): Promise<RawTileJson> {
@@ -57,9 +109,6 @@ function buildStyleFromConfig(config: NormalizedConfig): StyleSpecification {
   if (config.encoding) {
     return {
       version: 8,
-      projection: {
-        type: "globe",
-      },
       sources: {
         ...(config.osm
           ? {
@@ -332,6 +381,7 @@ function getVectorLayerIds(tileJson: RawTileJson): string[] {
     const parsed = JSON.parse(tileJson.json) as {
       vector_layers?: { id: string }[];
     };
+
     if (
       Array.isArray(parsed.vector_layers) &&
       parsed.vector_layers.length > 0
