@@ -135,7 +135,7 @@ export function buildStyleFromConfig(
               tileSize: 256,
               minzoom: config.minzoom,
               maxzoom: config.maxzoom,
-              attribution: config.attribution,
+              attribution: config.attribution ?? "",
               encoding: config.encoding,
             }
           : {
@@ -144,7 +144,7 @@ export function buildStyleFromConfig(
               tileSize: 256,
               minzoom: config.minzoom,
               maxzoom: config.maxzoom,
-              attribution: config.attribution,
+              attribution: config.attribution ?? "",
             },
       },
       ...(terrainPreview
@@ -224,7 +224,7 @@ export function buildStyleFromConfig(
           tileSize: 256,
           minzoom: config.minzoom,
           maxzoom: config.maxzoom,
-          attribution: config.attribution,
+          attribution: config.attribution ?? "",
         },
       },
       layers: [
@@ -270,7 +270,7 @@ export function buildStyleFromConfig(
         tiles: ["/tiles/{z}/{x}/{y}"],
         minzoom: config.minzoom,
         maxzoom: config.maxzoom,
-        attribution: config.attribution,
+        attribution: config.attribution ?? "",
       },
     },
     layers: [
